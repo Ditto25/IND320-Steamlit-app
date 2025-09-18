@@ -1,4 +1,6 @@
 # app.py
+# Streamlit app for exploring Open Meteo data from CSV
+# Features:
 import re
 from typing import List, Optional, Tuple
 
@@ -16,7 +18,7 @@ st.set_page_config(page_title="Open Meteo Explorer", layout="wide")
 def load_csv(path: str = "open-meteo-subset.csv") -> pd.DataFrame:
     """Les CSV og gjør noen grunnleggende parsingforsøk (dato). Cached for raskere gjenkjøringer."""
     df = pd.read_csv(path)
-    # Prøv å parse en mulig dato-kolonne (vanlige navn)
+    # Prøv å parse en mulig dato-kolonne 
     for cand in ("time", "date", "datetime", "timestamp"):
         if cand in df.columns:
             df[cand] = pd.to_datetime(df[cand], errors="coerce")
@@ -31,18 +33,18 @@ def guess_month_like_columns(df: pd.DataFrame) -> List[str]:
        Heuristikk: YYYY-MM eller month_*, ellers fallback = alle numeriske kolonner."""
     month_cols = []
     for col in df.columns:
-        if re.match(r"^\d{4}-\d{2}$", col) or re.match(r"^\d{4}_\d{2}$", col):
+        if re.match(r"^\d{4}-\d{2}$", col) or re.match(r"^\d{4}_\d{2}$", col):# YYYY-MM eller YYYY_MM
             month_cols.append(col)
-        elif re.match(r"(?i)^month(_|-)?\d+", col):
+        elif re.match(r"(?i)^month(_|-)?\d+", col): # month_1, month-2, month3 etc
             month_cols.append(col)
-        elif col.lower() in ("jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"):
+        elif col.lower() in ("jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"): 
             month_cols.append(col)
     if not month_cols:
         # fallback: bruk alle numeriske kolonner (ikke-dato)
         month_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
     return month_cols
 
-def make_row_series_column(df: pd.DataFrame, cols: List[str], new_col_name: str = "month_series") -> pd.DataFrame:
+def make_row_series_column(df: pd.DataFrame, cols: List[str], new_col_name: str = "month_series") -> pd.DataFrame: 
     """Lag en kolonne hvor hver celle er en liste (krav for LineChartColumn)."""
     if len(cols) == 0:
         df[new_col_name] = [[] for _ in range(len(df))]
@@ -50,20 +52,17 @@ def make_row_series_column(df: pd.DataFrame, cols: List[str], new_col_name: str 
         df[new_col_name] = df[cols].apply(lambda r: [ (float(x) if not pd.isna(x) else None) for x in r.values ], axis=1)
     return df
 
-# -------------------------
 # Last data
-# -------------------------
 df = load_csv("open-meteo-subset.csv")
 
-# Gjett månedskolonner / målekolonner
+# Gjett månedskolonner
 month_cols = guess_month_like_columns(df)
 
-# Lag en kolonne med liste-verdier (kreves for LineChartColumn i st.dataframe)
+# Lag en kolonne med liste-verdier
 df = make_row_series_column(df, month_cols, new_col_name="month_series")
 
-# -------------------------
+
 # SIDENAV / MULTI-PAGE (EN FIL)
-# -------------------------
 page = st.sidebar.radio("Velg side", ["Hjem", "Data (tabell)", "Plot (interaktiv)", "Side 4 (dummy)"])
 
 if page == "Hjem":
