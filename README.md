@@ -6,7 +6,8 @@ This README shows how to set up the environment and run the app locally on Windo
 
 ---
 
-# 🎈 Blank app template
+# Simple Streamlit app 🪕
+
 
 A simple Streamlit app template for you to modify!
 
@@ -26,8 +27,3 @@ $ pip install -r requirements.txt
 $ streamlit run streamlit_app.py
 ```
 
-Just add some emojis and some other things to run the streamlit
-
-```
-
-```
