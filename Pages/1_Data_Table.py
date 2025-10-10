@@ -67,7 +67,7 @@ st.dataframe(
 # --- Large plot viewer for a selected variable ---
 # made for easier see each table variable in a larger plot
 
-st.subheader("Inspect a variable from January 2020")
+st.subheader("Inspect a Variable From January 2020")
 var = st.selectbox("Choose variable", options=list(proc.columns))
 if var:
     st.write(f"#### {pretty_name(var)}")
