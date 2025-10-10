@@ -9,8 +9,6 @@ This README shows how to set up the environment and run the app locally on Windo
 # Simple Streamlit app 🪕
 
 
-A simple Streamlit app template for you to modify!
-
 Open in Streamlit
 
 ## How to run it on your own machine
