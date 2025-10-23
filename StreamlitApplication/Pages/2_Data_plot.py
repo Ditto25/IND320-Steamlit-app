@@ -3,7 +3,7 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from Data_loader import load_data
+from StreamlitApplication.Data_loader import load_data
 
 
 # Set the page title and description

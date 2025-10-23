@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from Data_loader import load_data
+from StreamlitApplication.Data_loader import load_data
 
 
 def pretty_name(col: str) -> str:

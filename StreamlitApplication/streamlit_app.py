@@ -34,21 +34,82 @@ def discover_pages():
 # Discover pages
 pages = discover_pages()
 
-# Sidebar navigation
+# Sidebar navigation (use a radio so all pages are visible)
 st.sidebar.title("Navigation")
 
-# Initialize session state for current page
+# Build navigation options: label -> value (value is path or 'Home')
+nav_options = [('Home', 'Home')] + [(display, path) for (_m, display, path) in pages]
+
+if not pages:
+	st.sidebar.info("No pages found in `Pages/` — check that .py files exist there.")
+
+# labels shown to the user
+labels = [lbl for lbl, _val in nav_options]
+
+# initialize page in session state
 if 'page' not in st.session_state:
 	st.session_state['page'] = 'Home'
 
-# Home button
-if st.sidebar.button("Home", key="nav_home"):
-	st.session_state['page'] = 'Home'
+# radio always shows all options; map selection back to path
+choice = st.sidebar.radio('Go to', labels, index=labels.index(st.session_state.get('page', 'Home')) if st.session_state.get('page') in labels else 0)
+# find corresponding value
+selected = next((val for lbl, val in nav_options if lbl == choice), 'Home')
+st.session_state['page'] = selected
 
-# One button per discovered page (no numbers in the display names)
-for i, (_mod, display, path) in enumerate(pages):
-	if st.sidebar.button(display, key=f"nav_{i}"):
-		st.session_state['page'] = path
+
+# --- Secrets / credentials loader (Streamlit secrets preferred) ---
+def load_secrets():
+	"""Return a dict with keys 'mongo_user', 'mongo_pwd', and optional cassandra settings.
+	Priority: st.secrets -> environment variables. Raises RuntimeError if required secrets missing.
+	"""
+	secrets = {}
+	# Try Streamlit secrets
+	try:
+		s = st.secrets
+	except Exception:
+		s = {}
+
+	# Mongo
+	mongo_user = None
+	mongo_pwd = None
+	if isinstance(s, dict) and 'mongo' in s:
+		m = s.get('mongo', {})
+		mongo_user = m.get('user')
+		mongo_pwd = m.get('password')
+
+	# Fallback to environment variables
+	import os
+	if not mongo_user:
+		mongo_user = os.getenv('MONGO_USER')
+	if not mongo_pwd:
+		mongo_pwd = os.getenv('MONGO_PWD')
+
+	if not (mongo_user and mongo_pwd):
+		# Do not raise immediately here; return Nones so caller can decide how to proceed
+		return {'mongo_user': None, 'mongo_pwd': None}
+
+	# Cassandra optional settings
+	cass_host = None
+	cass_port = None
+	if isinstance(s, dict) and 'cassandra' in s:
+		c = s.get('cassandra', {})
+		cass_host = c.get('host')
+		cass_port = c.get('port')
+	if not cass_host:
+		cass_host = os.getenv('CASSANDRA_HOST', '127.0.0.1')
+	if not cass_port:
+		cass_port = int(os.getenv('CASSANDRA_PORT', '9042'))
+
+	return {'mongo_user': mongo_user, 'mongo_pwd': mongo_pwd, 'cass_host': cass_host, 'cass_port': cass_port}
+
+
+# show secret presence in sidebar (masked)
+_secrets = load_secrets()
+if _secrets.get('mongo_user'):
+	st.sidebar.write('Mongo credentials: :white_check_mark:')
+else:
+	st.sidebar.warning('Mongo credentials: missing (set .streamlit/secrets or env vars MONGO_USER / MONGO_PWD)')
+
 
 
 def load_module_from_path(path_str: str, module_alias: str):
