@@ -1,76 +1,142 @@
-
-# Import necessary libraries
 import streamlit as st
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
-from StreamlitApplication.Data_loader import load_data
+import StreamlitApplication.Data_loader as load_data    
 
-
-# Set the page title and description
-st.title("Plot Explorer")
-st.write("Use the controls below to explore the data by column and month.")
-
-
-# Load the data using the cached loader
-df = load_data()  # DataFrame with time index
-
-
-# ---- Controls ----
-# Dropdown to select a column or all columns
-options = ["All columns"] + list(df.columns)
-choice = st.selectbox("Select column to plot", options, index=0)
-
-# Slider to select a range of months (defaults to first month)
-months = sorted(df.index.to_period("M").unique())
-labels = [str(m) for m in months]
-
-start_label, end_label = st.select_slider(
-    "Select month range",
-    options=labels,
-    value=(labels[0], labels[0])  # default = first month
+# Page configuration
+st.set_page_config(
+    page_title="🌤️ Weather Data Analysis",
+    layout="wide"
 )
 
+# ---------------------------
+# Helpers
+# ---------------------------
+def get_weather_data():
+    """Get weather data from session state if available, otherwise fallback to loader."""
+    if 'weather_data' in st.session_state and st.session_state.weather_data is not None:
+        return st.session_state.weather_data
+    try:
+        return load_data()
+    except Exception:
+        return None
 
-# ---- Subset by month range ----
-# Filter the DataFrame to only include data within the selected month range
-start_p = pd.Period(start_label, freq="M")
-end_p   = pd.Period(end_label,   freq="M")
-mask = (df.index.to_period("M") >= start_p) & (df.index.to_period("M") <= end_p)
-d = df.loc[mask]
+
+def ensure_time_column(df: pd.DataFrame) -> pd.DataFrame:
+    """Ensure there is a 'time' column of datetime64[ns]."""
+    df = df.copy()
+
+    # Case 1: Already has 'time'
+    if 'time' in df.columns:
+        df['time'] = pd.to_datetime(df['time'], errors='coerce', utc=True)
+        return df
+
+    # Case 2: Try common timestamp-like names
+    for candidate in ['timestamp', 'datetime', 'date', 'period_start', 'valid_time', 'startTime', 'startTime_parsed']:
+        if candidate in df.columns:
+            df['time'] = pd.to_datetime(df[candidate], errors='coerce', utc=True)
+            return df
+
+    # Case 3: Maybe index is datetime
+    if isinstance(df.index, pd.DatetimeIndex) or np.issubdtype(df.index.dtype, np.datetime64):
+        df = df.reset_index()
+        df.rename(columns={df.columns[0]: 'time'}, inplace=True)
+        df['time'] = pd.to_datetime(df['time'], errors='coerce', utc=True)
+        return df
+
+    st.warning("⚠️ No 'time' or timestamp-like column found in DataFrame.")
+    return df
 
 
-# ---- Smoothing and Standardization Option ----
-# Option to smooth and standardize the data for better comparison
-st.markdown("---")
-st.subheader("Plot Options")
-smooth = st.checkbox(
-    "Smooth and standardize (z-score) all columns (recommended for comparison)", value=False
-)
+def get_first_month_data(df: pd.DataFrame, column: str, max_points: int = 31 * 24):
+    """Get data for the first month (up to max_points) for the specified column."""
+    df = df.copy()
+    df = ensure_time_column(df)
 
-# ---- Plotting ----
-fig, ax = plt.subplots(figsize=(10, 4))
-if choice == "All columns":
-    plot_df = d.copy()
-    if smooth:
-        # Apply rolling mean (window=5) and z-score standardization to all columns
-        plot_df = plot_df.rolling(window=5, min_periods=1).mean()
-        plot_df = (plot_df - plot_df.mean()) / plot_df.std(ddof=0)
-    plot_df.plot(ax=ax)
-    ax.set_title("All Columns Over Time" + (" (Standardized & Smoothed)" if smooth else ""))
-    ax.set_ylabel("z-score" if smooth else "Value")
+    if 'time' not in df.columns:
+        st.error("Cannot extract first month data: No 'time' column found.")
+        return pd.DataFrame(columns=['time', column])
+
+    df = df.sort_values('time')
+    start_time = df['time'].min()
+    end_time = start_time + pd.Timedelta(days=31)
+
+    monthly_data = df[(df['time'] >= start_time) & (df['time'] < end_time)][['time', column]]
+
+    # Limit to max_points
+    if len(monthly_data) > max_points:
+        monthly_data = monthly_data.head(max_points)
+
+    return monthly_data
+
+
+# ---------------------------
+# Main Page
+# ---------------------------
+st.title("🌤️ Interactive Weather Data Plot")
+st.markdown("""
+Explore the Data with Custom Visualizations  
+Use the controls below to customize your view of the weather data.
+""")
+
+data = get_weather_data()
+
+if data is None or len(data) == 0:
+    st.warning("⚠️ No weather data loaded. Please visit the weather download page first.")
+    st.info("Once you download data there, it will be available here for viewing.")
 else:
-    plot_series = d[choice].copy()
-    if smooth:
-        # Apply rolling mean (window=5) to the selected column
-        plot_series = plot_series.rolling(window=5, min_periods=1).mean()
-    plot_series.plot(ax=ax)
-    ax.set_title(f"{choice} Over Time" + (" (Smoothed)" if smooth else ""))
-    ax.set_ylabel(choice)
+    # ✅ Ensure time column
+    data = ensure_time_column(data)
 
-# Set x-axis label and grid for clarity
-ax.set_xlabel("Time")
-ax.grid(True)
-plt.tight_layout()
+    # ✅ Derive year-month for filtering
+    data['year_month'] = data['time'].dt.to_period('M').astype(str)
 
-# Display the plot in the Streamlit app
-st.pyplot(fig)
+    # ✅ Rename columns for clarity (your requested names)
+    rename_map = {
+        'temperature_2m': 'temperature_2m (°C)',
+        'precipitation': 'precipitation (mm)',
+        'wind_speed_10m': 'wind_speed_10m (m/s)',
+        'wind_gusts_10m': 'wind_gusts_10m (m/s)',
+        'wind_direction_10m': 'wind_direction_10m (°)'
+    }
+    data = data.rename(columns={k: v for k, v in rename_map.items() if k in data.columns})
+
+    st.success(f"✅ Weather data loaded: {len(data):,} records")
+
+    if 'selected_area' in st.session_state:
+        sel_city = st.session_state.get('selected_city', '')
+        st.info(f"📍 Data for: **{st.session_state.selected_area}** ({sel_city})")
+
+    try:
+        # Filter numeric columns
+        data_columns = [col for col in data.columns if col not in ['time', 'year_month'] and np.issubdtype(data[col].dtype, np.number)]
+
+        col1, col2 = st.columns(2)
+        with col1:
+            selected_column = st.selectbox("Select Variable to Plot", data_columns)
+        with col2:
+            available_months = sorted(data['year_month'].unique())
+            month_range = st.select_slider("Select Month Range", available_months, value=(available_months[0], available_months[-1]))
+
+        # Filter by month range
+        df_filtered = data[(data['year_month'] >= month_range[0]) & (data['year_month'] <= month_range[1])]
+
+        # ✅ Plot
+        st.subheader("📈 Weather Data Visualization")
+        plt.figure(figsize=(10, 4))
+        plt.plot(df_filtered['time'], df_filtered[selected_column], linewidth=1)
+        plt.title(f"{selected_column} over Time ({month_range[0]} → {month_range[1]})")
+        plt.xlabel("Time")
+        plt.ylabel(selected_column)
+        plt.xticks(rotation=45)
+        plt.tight_layout()
+        st.pyplot(plt)
+
+        # ✅ Statistics
+        st.markdown("---")
+        st.subheader("📊 Basic Statistics")
+        st.dataframe(df_filtered[[selected_column]].describe())
+
+    except Exception as e:
+        st.error(f"Error displaying data statistics: {e}")

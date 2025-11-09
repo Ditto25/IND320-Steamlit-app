@@ -23,7 +23,7 @@ def detect_temperature_outliers(df, freq_cutoff=0.05, n_std=3):
     Detect temperature outliers using DCT and SPC
     """
     # Extract temperature data
-    temp = df['temperature_2m (°C)'].ffill().bfill().values
+    temp = df['temperature (°C)'].ffill().bfill().values
     time = pd.to_datetime(df['time'])
     
     # Apply DCT
@@ -168,6 +168,28 @@ st.markdown("---")
 
 # Check if weather data is available
 weather_df = get_weather_data()
+# --- Normalize time column naming ---
+def ensure_time_column(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+    if 'time' in df.columns:
+        df['time'] = pd.to_datetime(df['time'], errors='coerce', utc=True)
+        return df
+    for candidate in ['timestamp', 'datetime', 'date', 'period_start', 'valid_time']:
+        if candidate in df.columns:
+            df['time'] = pd.to_datetime(df[candidate], errors='coerce', utc=True)
+            return df
+    if isinstance(df.index, pd.DatetimeIndex) or np.issubdtype(df.index.dtype, np.datetime64):
+        df = df.reset_index()
+        df.rename(columns={df.columns[0]: 'time'}, inplace=True)
+        df['time'] = pd.to_datetime(df['time'], errors='coerce', utc=True)
+        return df
+    st.warning("⚠️ No 'time' or timestamp-like column found in DataFrame.")
+    return df
+
+# --- Apply the fix right after loading the data ---
+if weather_df is not None:
+    weather_df = ensure_time_column(weather_df)
+
 
 if weather_df is None:
     st.warning("⚠️ No weather data loaded. Please visit the **Price Area Selector** page first to download weather data.")

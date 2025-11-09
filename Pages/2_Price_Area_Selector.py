@@ -72,19 +72,13 @@ def download_hourly_weather_data(longitude, latitude, year):
     return df
 
 # Main page content (customized text)
-st.title("Custom Price Area Selector & Hourly Weather")
-st.header("Choose a price area and year to download hourly weather data")
-
-st.markdown("""
-This page lets you pick one of the predefined price areas (hardcoded cities) and a year.
-The app will download hourly weather metrics (temperature, apparent temperature, precipitation,
-windspeed, gusts, wind direction and relative humidity) from the Open-Meteo archive and store it in the session.
-""")
+st.title("📍🌤️ Price Area Selector & Weather Data Downloader")
+st.header("📅 Choose a price area and year to download hourly weather data")
 
 st.markdown("---")
 
 try:
-    st.subheader("Select Price Area (hardcoded)")
+    st.subheader("Select Price Area 📍")
     price_areas = list(Data.keys())
     selected_area = st.radio(
         "Choose a Norwegian price area:",
@@ -101,7 +95,7 @@ try:
     st.info(f"Selected: {selected_area} — {selected_city} ({selected_lat:.4f}, {selected_lon:.4f})")
 
     st.markdown("---")
-    st.subheader("Select Year (hourly data)")
+    st.subheader("Select Year (hourly data) 📅")
 
     selected_year = st.selectbox(
         "Choose a year for hourly weather data:",
@@ -113,7 +107,7 @@ try:
     st.info(f"Selected year: {selected_year}")
 
     st.markdown("---")
-    st.subheader("Download Hourly Weather Data")
+    st.subheader("Download Hourly Weather Data ⬇️🌤️")
 
     col1, col2 = st.columns([3, 1])
     with col1:
@@ -139,7 +133,7 @@ try:
                 st.success(f"Successfully downloaded {len(weather_data):,} hourly records for {selected_city} ({selected_year}).")
 
                 st.markdown("---")
-                st.subheader("Data Summary")
+                st.subheader("Data Summary 📊")
 
                 col1, col2, col3 = st.columns(3)
                 with col1:
@@ -174,7 +168,7 @@ try:
             st.session_state.selected_area = None
             st.session_state.selected_city = None
             st.session_state.selected_year = None
-            st.experimental_rerun()
+            st.rerun()
 
 except Exception as e:
     st.error(f"An error occurred: {e}")

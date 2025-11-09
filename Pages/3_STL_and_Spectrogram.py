@@ -22,56 +22,76 @@ except Exception:
     _SCIPY_AVAILABLE = False
 
 import numpy as np
+from functools import lru_cache
 
 # Page configuration: sets the browser tab title and layout behavior
 st.set_page_config(
     page_title="Time Series Analysis",
     layout="wide"
 )
+import streamlit.components.v1 as components
 
-# Sidebar: customize visible text
-# These inputs let the user change displayed strings on the page without editing the code.
-with st.sidebar.expander("Customize displayed text", expanded=True):
-    # Editable page title shown at top of Streamlit app
-    title_text = st.text_input("Page title", value="Advanced Time Series Analysis")
-    # Small header below the title
-    header_text = st.text_input("Header", value="STL Decomposition and Spectrogram Analysis")
-    # Top description shown under header; general explanation for the page
-    description_text = st.text_area("Top description", value="Analyze electricity production patterns using advanced time series techniques.", height=80)
-    # Intro text for the STL tab describing decomposition components
-    stl_intro = st.text_area("STL introduction", value=(
-        "STL decomposes a time series into three components:\n"
-        "- Trend: Long-term progression\n"
-        "- Seasonal: Repeating patterns (daily, weekly, etc.)\n"
-        "- Residual: Remainder after removing trend and seasonal"
-    ), height=140)
-    # Guidance shown after performing STL explaining how to interpret components
-    stl_interpretation = st.text_area("STL interpretation guide", value=(
-        "- Trend: Shows long-term changes in production\n"
-        "- Seasonal: Reveals daily/weekly patterns\n"
-        "- Residual: Contains irregular variations and noise"
-    ), height=120)
-    # Intro for spectrogram tab describing what a spectrogram reveals
-    spec_intro = st.text_area("Spectrogram introduction", value=(
-        "A spectrogram shows how frequency content changes over time, revealing:\n"
-        "- Daily cycles: ~1/24 cycles/hour\n"
-        "- Weekly patterns: ~1/168 cycles/hour\n"
-        "- Seasonal shifts: Long-term frequency changes"
-    ), height=140)
-    # Key frequencies and tips displayed below the spectrogram
-    spec_key_freq = st.text_area("Spectrogram key frequencies", value=(
-        "- Daily cycle: 0.042 cycles/hour (1/24)\n"
-        "- Weekly cycle: 0.006 cycles/hour (1/168)\n"
-        "- Brighter colors: Higher power at that frequency/time"
-    ), height=120)
+# Collapse the sidebar on load (leaves the sidebar toggle/navigation visible)
+components.html(
+    """
+    <script>
+    (function() {
+        const tryCollapse = () => {
+            const btn = window.parent.document.querySelector('button[aria-label="Toggle sidebar"]');
+            const sidebar = window.parent.document.querySelector('div[data-testid="stSidebar"]');
+            if (btn && sidebar) {
+                const w = parseFloat(window.getComputedStyle(sidebar).width) || 0;
+                if (w > 120) {
+                    try { btn.click(); } catch(e) {}
+                }
+                clearInterval(interval);
+            }
+        };
+        const interval = setInterval(tryCollapse, 100);
+        setTimeout(() => clearInterval(interval), 3000);
+    })();
+    </script>
+    """,
+    height=0,
+)
+
+# Fixed (non-editable) displayed text
+title_text = "📈 Advanced Time Series Analysis"
+header_text = "🌀 STL Decomposition and 📡 Spectrogram Analysis"
+description_text = "Analyze electricity production patterns using advanced time series techniques."
+
+stl_intro = (
+    "STL decomposes a time series into three components:\n"
+    "- Trend: Long-term progression\n"
+    "- Seasonal: Repeating patterns (daily, weekly, etc.)\n"
+    "- Residual: Remainder after removing trend and seasonal"
+)
+
+stl_interpretation = (
+    "- Trend: Shows long-term changes in production\n"
+    "- Seasonal: Reveals daily/weekly patterns\n"
+    "- Residual: Contains irregular variations and noise"
+)
+
+spec_intro = (
+    "A spectrogram shows how frequency content changes over time, revealing:\n"
+    "- Daily cycles: ~1/24 cycles/hour\n"
+    "- Weekly patterns: ~1/168 cycles/hour\n"
+    "- Seasonal shifts: Long-term frequency changes"
+)
+
+spec_key_freq = (
+    "- Daily cycle: 0.042 cycles/hour (1/24)\n"
+    "- Weekly cycle: 0.006 cycles/hour (1/168)\n"
+    "- Brighter colors: Higher power at that frequency/time"
+)
 
 # MongoDB connection
-@st.cache_resource
+@lru_cache(maxsize=1)
 def init_connection():
     """Initialize MongoDB connection using secrets.
-    Cached resource so the client is reused across reruns.
-    Expects a 'URI' entry in Streamlit secrets.
-    """
+    Cached in-memory to avoid Streamlit's cache which may access UI components in some environments.
+    Expects a 'URI' entry in .streamlit/secrets.toml under [MONGO]."""
     # Load Mongo URI
     secrets = toml.load(".streamlit/secrets.toml")
     uri = secrets["MONGO"]["uri"]
@@ -80,11 +100,11 @@ def init_connection():
     return client
 
 # Load data from MongoDB
-@st.cache_data(ttl=600)
+@lru_cache(maxsize=1)
 def load_production_data():
     """Load production data from MongoDB and parse time columns.
     Returned DataFrame includes 'startTime_parsed' and 'endTime_parsed' as UTC timestamps.
-    Cached for 10 minutes to avoid frequent DB hits.
+    Cached in-memory to avoid using Streamlit's cache internals which may require UI elements.
     """
     client = init_connection()
     db = client['Database']
@@ -191,11 +211,10 @@ def spectrogram_analysis(df, price_area, production_group, window_length=168, wi
     plt.tight_layout()
     return fig, None
 
-# Main page content using customizable text
-# These calls display the editable strings defined in the sidebar
-st.title(title_text)          # Top-level title (editable)
-st.header(header_text)        # Subtitle/header (editable)
-st.markdown(description_text) # Introductory description (editable)
+# Main page content using fixed text
+st.title(title_text)          # Top-level title (fixed)
+st.header(header_text)        # Subtitle/header (fixed)
+st.markdown(description_text) # Introductory description (fixed)
 st.markdown("---")
 
 try:
@@ -207,7 +226,7 @@ try:
 
     with tab1:
         st.subheader("Seasonal-Trend Decomposition using LOESS (STL)")
-        st.markdown(stl_intro)  # Show the STL introduction text from sidebar
+        st.markdown(stl_intro)  # Show the STL introduction text
 
         # Inputs for STL analysis
         col1, col2, col3 = st.columns(3)
@@ -239,11 +258,11 @@ try:
                 else:
                     st.pyplot(fig)
                     st.markdown("---")
-                    st.info(stl_interpretation)  # Show interpretation tips from sidebar
+                    st.info(stl_interpretation)  # Show interpretation tips
 
     with tab2:
         st.subheader("Spectrogram - Frequency-Time Analysis")
-        st.markdown(spec_intro)  # Show spectrogram introduction from sidebar
+        st.markdown(spec_intro)  # Show spectrogram introduction
         col1, col2 = st.columns(2)
         with col1:
             # Select price area for spectrogram
@@ -267,7 +286,7 @@ try:
                 else:
                     st.pyplot(fig)
                     st.markdown("---")
-                    st.info(spec_key_freq)  # Show key frequency tips from sidebar
+                    st.info(spec_key_freq)  # Show key frequency tips
 
 except Exception as e:
     # Generic error handling to surface issues to the user
