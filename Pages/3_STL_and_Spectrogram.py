@@ -9,7 +9,10 @@ from functools import lru_cache
 
 # Optional imports for STL and Spectrogram
 try:
-    from statsmodels.tsa.seasonal import STL
+    # Import dynamically to avoid static analysis errors when statsmodels is not installed
+    import importlib
+    stats_seasonal = importlib.import_module("statsmodels.tsa.seasonal")
+    STL = getattr(stats_seasonal, "STL")
     _STL_AVAILABLE = True
 except Exception:
     STL = None
