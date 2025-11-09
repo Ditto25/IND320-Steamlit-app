@@ -63,10 +63,6 @@ def emoji_for(display: str) -> str:
 # Discover pages
 pages = discover_pages()
 
-# Remove unwanted pages by display name
-_exclude = {"price area selector", "weather data downloader"}
-pages = [p for p in pages if p[1].lower() not in _exclude]
-
 # Build a palette and assign a (different) emoji to each discovered page (by path)
 emoji_palette = [
 	"📈", "🎯","📊", "🔬", "🔍"
