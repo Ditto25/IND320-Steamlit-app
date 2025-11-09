@@ -2,11 +2,18 @@ import streamlit as st
 import pandas as pd
 import requests
 
-# Page configuration
+# --- PAGE CONFIGURATION ---
 st.set_page_config(
-    page_title="Custom Price Area & Hourly Weather",
+    page_title="Weather Data Downloader",
     layout="wide"
 )
+
+# --- MAIN TITLE ---
+st.title("🌦️ Weather Data Downloader")
+st.caption("Select a Norwegian price area and year to download hourly weather data.")
+
+st.markdown("---")
+
 
 # Hardcoded Norwegian price areas / cities with coordinates
 Data = {
@@ -72,8 +79,7 @@ def download_hourly_weather_data(longitude, latitude, year):
     return df
 
 # Main page content (customized text)
-st.title("📍🌤️ Price Area Selector & Weather Data Downloader")
-st.header("📅 Choose a price area and year to download hourly weather data")
+st.markdown("📅 Choose a price area and year to download hourly weather data")
 
 st.markdown("---")
 

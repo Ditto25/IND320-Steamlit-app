@@ -94,16 +94,55 @@ else:
 
     # ✅ Rename columns for clarity (your requested names)
     rename_map = {
-        'temperature_2m': 'temperature_2m (°C)',
-        'precipitation': 'precipitation (mm)',
-        'wind_speed_10m': 'wind_speed_10m (m/s)',
-        'wind_gusts_10m': 'wind_gusts_10m (m/s)',
-        'wind_direction_10m': 'wind_direction_10m (°)'
+        'temperature_2m': 'Temperature (°C)',
+        'precipitation': 'Precipitation (mm)',
+        'wind_speed_10m': 'Wind Speed (m/s)',
+        'wind_gusts_10m': 'Wind Gusts (m/s)',
+        'wind_direction_10m': 'Wind Direction (°)'
     }
     data = data.rename(columns={k: v for k, v in rename_map.items() if k in data.columns})
 
     st.success(f"✅ Weather data loaded: {len(data):,} records")
+    # Provide a multi-select that defaults to all numeric variables and render the plot/stats here,
+    # then stop further execution so the later duplicate widgets aren't shown.
+    data_columns = [col for col in data.columns if col not in ['time', 'year_month'] and np.issubdtype(data[col].dtype, np.number)]
 
+    if len(data_columns) == 0:
+        st.warning("No numeric variables available to plot.")
+        st.stop()
+
+    col1, col2 = st.columns(2)
+    with col1:
+        # Multi-select defaulting to all variables
+        selected_columns = st.multiselect("Select Variable to Plot", data_columns, default=data_columns)
+    with col2:
+        available_months = sorted(data['year_month'].unique())
+        month_range = st.select_slider("Select Month Range", available_months, value=(available_months[0], available_months[-1]))
+
+    # Filter by month range
+    df_filtered = data[(data['year_month'] >= month_range[0]) & (data['year_month'] <= month_range[1])]
+
+    # Plot selected columns (multiple allowed)
+    st.subheader("📈 Weather Data Visualization")
+    plt.figure(figsize=(10, 4))
+    for i, col_name in enumerate(selected_columns):
+        plt.plot(df_filtered['time'], df_filtered[col_name], label=col_name, linewidth=1)
+    plt.title(f"{' ,'.join(selected_columns)} over Time ({month_range[0]} → {month_range[1]})")
+    plt.xlabel("Time")
+    plt.ylabel("Value")
+    plt.xticks(rotation=45)
+    if len(selected_columns) > 1:
+        plt.legend(loc='upper right', fontsize='small')
+    plt.tight_layout()
+    st.pyplot(plt)
+
+    # Statistics for selected columns
+    st.markdown("---")
+    st.subheader("📊 Basic Statistics")
+    st.dataframe(df_filtered[selected_columns].describe())
+
+    # Stop further execution to avoid duplicate widgets/plots later in the file
+    st.stop()
     if 'selected_area' in st.session_state:
         sel_city = st.session_state.get('selected_city', '')
         st.info(f"📍 Data for: **{st.session_state.selected_area}** ({sel_city})")
