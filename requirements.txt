@@ -8,3 +8,5 @@ matplotlib
 pymongo
 toml
 plotly
+scipy
+statsmodels
