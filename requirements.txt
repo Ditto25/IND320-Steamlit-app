@@ -10,3 +10,4 @@ toml
 plotly
 scipy
 statsmodels
+sklearn
